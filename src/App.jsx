@@ -18,6 +18,7 @@ function App() {
   const [userAddress, setUserAddress] = useState("");
   const [results, setResults] = useState([]);
   const [hasQueried, setHasQueried] = useState(false);
+  const [queries, setQueries] = useState({});
   const [tokenDataObjects, setTokenDataObjects] = useState([]);
   const [alchemy, setAlchemy] = useState();
   const [loading, setLoading] = useState(false);
@@ -36,21 +37,37 @@ function App() {
       const signer = provider.getSigner();
       const address = await signer.getAddress();
 
-      if (address) {
+      if (address && alchemy) {
         setUserAddress(address);
         await getTokenBalance(address);
       }
     }
     connectWallet();
-  }, []);
+  }, [alchemy]);
+
+  async function handleCachedQuery(address) {
+    setUserAddress(address);
+    await getTokenBalance(address);
+  }
 
   async function getTokenBalance(address) {
-    if (!address || !userAddress) {
+    const _address = address || userAddress;
+    const cachedQuery = queries[_address];
+
+    if (!_address) {
+      setHasQueried(false);
       return;
     }
+    else if (cachedQuery) {
+      setResults(cachedQuery.data);
+      setTokenDataObjects(cachedQuery.tokenDataObjects);
+      setHasQueried(true);
+      return;
+    }
+
     setLoading(true);
     try {
-      const data = await alchemy.core.getTokenBalances(address || userAddress);
+      const data = await alchemy.core.getTokenBalances(_address);
       setResults(data);
 
       const tokenDataPromises = [];
@@ -61,10 +78,20 @@ function App() {
         tokenDataPromises.push(tokenData);
       }
 
-      setTokenDataObjects(await Promise.all(tokenDataPromises));
+      const tokenDataObjects = await Promise.all(tokenDataPromises);
+
+      setQueries(queries => ({
+        [_address]: {
+          data,
+          tokenDataObjects,
+        },
+        ...queries
+      }));
+      setTokenDataObjects(tokenDataObjects);
       setHasQueried(true);
     }
     catch (error) {
+      console.log(error);
       alert("Failed to check ERC-20 token balances.");
     }
     setLoading(false);
@@ -102,7 +129,7 @@ function App() {
           maxLength={42}
           autoFocus
         />
-        <Button className={classes.button} onClick={getTokenBalance} mt={36}
+        <Button className={classes.button} onClick={() => getTokenBalance()} mt={36}
           isDisabled={loading}>
           {loading
             ? "Loading..."
@@ -143,6 +170,13 @@ function App() {
         ) : (
           "Please make a query! This may take a few seconds..."
         )}
+
+        <Heading my={36}>Recent queries:</Heading>
+        <Flex direction={"column"}>
+          {Object.keys(queries).map(address => (
+            <a key={address} onClick={() => handleCachedQuery(address)}>{address}</a>
+          ))}
+        </Flex>
       </Flex>
     </Box>
   );
