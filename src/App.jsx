@@ -129,8 +129,7 @@ function App() {
           maxLength={42}
           autoFocus
         />
-        <Button className={classes.button} onClick={() => getTokenBalance()} mt={36}
-          isDisabled={loading}>
+        <Button className={classes.button} onClick={() => getTokenBalance()} mt={36} isDisabled={loading}>
           {loading
             ? "Loading..."
             : "Check ERC-20 Token Balances"
